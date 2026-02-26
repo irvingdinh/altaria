@@ -1,10 +1,15 @@
 {
-  "name": "api",
+  "name": "altaria",
   "version": "0.0.1",
-  "description": "",
+  "description": "altaria",
   "author": "",
-  "private": true,
   "license": "UNLICENSED",
+  "bin": {
+    "altaria": "./dist/cli.js"
+  },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "nest build",
     "format": "prettier --write --log-level warn \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -25,14 +30,15 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
+    "better-sqlite3": "^12.6.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
     "nanoid": "^5.1.6",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sqlite3": "^5.1.7",
     "typeorm": "^0.3.28"
   },
   "devDependencies": {

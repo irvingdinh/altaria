@@ -1,4 +1,4 @@
-.PHONY: dev kill check check-api check-ui
+.PHONY: dev kill check check-api check-ui build clean
 
 check:
 	$(MAKE) -j2 check-api check-ui
@@ -10,8 +10,19 @@ check-ui:
 	cd ui && bun run lint && bun run build
 
 kill:
-	@lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+	@lsof -ti :13340 | xargs kill -9 2>/dev/null || true
 	@lsof -ti :5173 | xargs kill -9 2>/dev/null || true
 
 dev: kill
 	cd api && npm start & cd ui && bun dev
+
+clean:
+	rm -rf api/dist/ui
+
+build: clean
+	cd api && npm run build
+	cd ui && bun run build
+	cp -r ui/dist api/dist/ui
+	printf '#!/usr/bin/env node\n' | cat - api/dist/cli.js > api/dist/cli.tmp
+	mv api/dist/cli.tmp api/dist/cli.js
+	chmod +x api/dist/cli.js

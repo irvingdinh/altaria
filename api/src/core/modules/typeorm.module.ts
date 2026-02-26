@@ -7,7 +7,7 @@ export const typeormForRoot = TypeOrmModule.forRootAsync({
   extraProviders: [DirectoryService],
   useFactory: (directoryService: DirectoryService): TypeOrmModuleOptions => {
     return {
-      type: 'sqlite',
+      type: 'better-sqlite3',
       database: directoryService.databasePath(),
       entities: [...entities],
       synchronize: true,
