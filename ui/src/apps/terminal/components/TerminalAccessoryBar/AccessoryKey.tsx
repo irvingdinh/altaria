@@ -4,13 +4,15 @@ import { cn } from "@/lib/utils.ts";
 
 interface AccessoryKeyProps {
   label: string;
+  icon?: React.ComponentType<{ className?: string }>;
   active?: boolean;
   onTap: () => void;
-  onPreventFocus: (e: React.PointerEvent | React.TouchEvent) => void;
+  onPreventFocus?: (e: React.PointerEvent | React.TouchEvent) => void;
 }
 
 export const AccessoryKey = ({
   label,
+  icon: Icon,
   active,
   onTap,
   onPreventFocus,
@@ -18,6 +20,7 @@ export const AccessoryKey = ({
   return (
     <button
       type="button"
+      aria-label={label}
       className={cn(
         "text-foreground/80 border-border flex h-7 min-w-8 items-center justify-center rounded-md border px-2 text-xs font-medium select-none",
         "active:bg-muted/80 transition-colors",
@@ -27,7 +30,7 @@ export const AccessoryKey = ({
       onTouchStart={onPreventFocus}
       onClick={onTap}
     >
-      {label}
+      {Icon ? <Icon className="h-3.5 w-3.5" /> : label}
     </button>
   );
 };

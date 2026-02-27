@@ -16,6 +16,7 @@ interface TerminalProps {
 export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const ctrlConsumedRef = useRef<(() => void) | null>(null);
+  const shiftConsumedRef = useRef<(() => void) | null>(null);
   const { theme } = useTheme();
 
   const isTouchOnly = useMemo(
@@ -23,13 +24,15 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
     [],
   );
 
-  const { terminalRef, sendInputRef, ctrlActiveRef } = useTerminalSession(
-    containerRef,
-    resolveTheme(theme),
-    sessionId,
-    onSessionExit,
-    ctrlConsumedRef,
-  );
+  const { terminalRef, sendInputRef, ctrlActiveRef, shiftActiveRef } =
+    useTerminalSession(
+      containerRef,
+      resolveTheme(theme),
+      sessionId,
+      onSessionExit,
+      ctrlConsumedRef,
+      shiftConsumedRef,
+    );
 
   // Theme sync
   useEffect(() => {
@@ -59,6 +62,8 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
           sendInputRef={sendInputRef}
           ctrlActiveRef={ctrlActiveRef}
           ctrlConsumedRef={ctrlConsumedRef}
+          shiftActiveRef={shiftActiveRef}
+          shiftConsumedRef={shiftConsumedRef}
         />
       )}
       <div

@@ -7,6 +7,7 @@ export interface TerminalSessionHandle {
   terminalRef: RefObject<XTerm | null>;
   sendInputRef: RefObject<((data: string) => void) | null>;
   ctrlActiveRef: RefObject<boolean>;
+  shiftActiveRef: RefObject<boolean>;
 }
 
 function getResponsiveFontSize(): number {
@@ -21,10 +22,12 @@ export function useTerminalSession(
   sessionId: string,
   onSessionExit?: () => void,
   ctrlConsumedRef?: RefObject<(() => void) | null>,
+  shiftConsumedRef?: RefObject<(() => void) | null>,
 ): TerminalSessionHandle {
   const terminalRef = useRef<XTerm | null>(null);
   const sendInputRef = useRef<((data: string) => void) | null>(null);
   const ctrlActiveRef = useRef<boolean>(false);
+  const shiftActiveRef = useRef<boolean>(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -51,10 +54,17 @@ export function useTerminalSession(
       term.textarea.style.caretColor = "transparent";
     }
 
-    try {
-      term.loadAddon(new WebglAddon());
-    } catch {
-      // WebGL not available, fall back to canvas renderer
+    // Skip WebGL on touch-only devices (mobile) — the canvas renderer is
+    // sufficient for terminal use and avoids a timing issue where the WebGL
+    // context initializes before the container has final dimensions, leaving
+    // the terminal invisible until a resize event forces a repaint.
+    const isTouchOnly = window.matchMedia("(hover: none)").matches;
+    if (!isTouchOnly) {
+      try {
+        term.loadAddon(new WebglAddon());
+      } catch {
+        // WebGL not available, fall back to canvas renderer
+      }
     }
 
     fitAddon.fit();
@@ -118,17 +128,31 @@ export function useTerminalSession(
     // On touch-only devices (e.g. iPhone):
     // - Swap Enter: Enter → newline (Option+Enter), Shift+Enter → submit
     // - Intercept Ctrl+letter from the mobile accessory bar
-    const isTouchOnly = window.matchMedia("(hover: none)").matches;
     if (isTouchOnly) {
       term.attachCustomKeyEventHandler((event) => {
         if (event.type !== "keydown") return true;
 
-        // Ctrl modifier from accessory bar: intercept letter keys
-        if (ctrlActiveRef.current && /^[a-zA-Z]$/.test(event.key)) {
-          const charCode = event.key.toUpperCase().charCodeAt(0) - 64;
-          sendInput(String.fromCharCode(charCode));
-          ctrlActiveRef.current = false;
-          ctrlConsumedRef?.current?.();
+        const shiftFromBar = shiftActiveRef.current;
+        const ctrlFromBar = ctrlActiveRef.current;
+
+        // Modifier keys from accessory bar: intercept letter keys
+        if ((shiftFromBar || ctrlFromBar) && /^[a-zA-Z]$/.test(event.key)) {
+          if (ctrlFromBar) {
+            // Ctrl+letter (or Ctrl+Shift+letter): send control code
+            const charCode = event.key.toUpperCase().charCodeAt(0) - 64;
+            sendInput(String.fromCharCode(charCode));
+            ctrlActiveRef.current = false;
+            ctrlConsumedRef?.current?.();
+          } else {
+            // Shift+letter only: send uppercase
+            sendInput(event.key.toUpperCase());
+          }
+
+          if (shiftFromBar) {
+            shiftActiveRef.current = false;
+            shiftConsumedRef?.current?.();
+          }
+
           event.preventDefault();
           return false;
         }
@@ -242,9 +266,10 @@ export function useTerminalSession(
       terminalRef.current = null;
       sendInputRef.current = null;
       ctrlActiveRef.current = false;
+      shiftActiveRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  return { terminalRef, sendInputRef, ctrlActiveRef };
+  return { terminalRef, sendInputRef, ctrlActiveRef, shiftActiveRef };
 }
