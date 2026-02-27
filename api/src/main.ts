@@ -17,7 +17,9 @@ async function bootstrap() {
     .setTitle('altaria API')
     .setVersion('0.0.1')
     .addTag('health')
+    .addTag('filesystem')
     .addTag('settings')
+    .addTag('workspaces')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
