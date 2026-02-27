@@ -5,7 +5,6 @@ import { type RefObject, useEffect, useRef } from "react";
 
 function getResponsiveFontSize(): number {
   const width = window.innerWidth;
-  if (width < 640) return 10;
   if (width < 1024) return 12;
   return 14;
 }
@@ -40,6 +39,7 @@ export function useTerminalSession(
     if (term.textarea) {
       term.textarea.setAttribute("autocomplete", "off");
       term.textarea.setAttribute("enterkeyhint", "enter");
+      term.textarea.style.caretColor = "transparent";
     }
 
     try {
@@ -98,6 +98,27 @@ export function useTerminalSession(
     ws.addEventListener("close", () => {
       term.write("\r\n[Connection lost]");
     });
+
+    // On touch-only devices (e.g. iPhone), swap Enter behavior so that:
+    //   Enter       → sends Option+Enter (newline without submit)
+    //   Shift+Enter → sends Enter (submit)
+    // This makes the default tap on "return" the safe action (newline).
+    const isTouchOnly = window.matchMedia("(hover: none)").matches;
+    if (isTouchOnly) {
+      term.attachCustomKeyEventHandler((event) => {
+        if (event.type !== "keydown" || event.key !== "Enter") {
+          return true;
+        }
+
+        if (ws.readyState === WebSocket.OPEN) {
+          const data = event.shiftKey ? "\r" : "\x1b\n";
+          ws.send(JSON.stringify({ type: "input", data }));
+        }
+
+        event.preventDefault();
+        return false;
+      });
+    }
 
     // Terminal input → WebSocket
     term.onData((data) => {
