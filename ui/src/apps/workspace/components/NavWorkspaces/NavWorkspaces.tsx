@@ -7,7 +7,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { useCreateSession, useSessions } from "@/apps/terminal/hooks";
 import {
@@ -19,10 +19,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
@@ -43,13 +45,11 @@ import { WorkspaceFormDialog } from "../WorkspaceFormDialog";
 
 function WorkspaceItem({
   workspace,
-  isActive,
   activeSessionId,
   onEdit,
   onDelete,
 }: {
   workspace: Workspace;
-  isActive: boolean;
   activeSessionId: string | null;
   onEdit: (w: Workspace) => void;
   onDelete: (w: Workspace) => void;
@@ -65,7 +65,7 @@ function WorkspaceItem({
   };
 
   return (
-    <Collapsible defaultOpen={isActive}>
+    <Collapsible defaultOpen>
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton>
@@ -83,9 +83,14 @@ function WorkspaceItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-48 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
+            side="bottom"
             align={isMobile ? "end" : "start"}
           >
+            <DropdownMenuItem onClick={handleNewSession}>
+              <Plus className="text-muted-foreground" />
+              <span>New Session</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onEdit(workspace)}>
               <Pencil className="text-muted-foreground" />
               <span>Edit</span>
@@ -114,15 +119,6 @@ function WorkspaceItem({
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             ))}
-            <SidebarMenuSubItem>
-              <SidebarMenuSubButton
-                className="text-sidebar-foreground/70"
-                onClick={handleNewSession}
-              >
-                <Plus className="size-3" />
-                <span>New Session</span>
-              </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
           </SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
@@ -132,7 +128,6 @@ function WorkspaceItem({
 
 export function NavWorkspaces() {
   const { data: workspaces, isLoading } = useWorkspaces();
-  const { workspaceId } = useParams<{ workspaceId: string }>();
   const [searchParams] = useSearchParams();
   const activeSessionId = searchParams.get("session");
 
@@ -146,6 +141,13 @@ export function NavWorkspaces() {
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
+        <SidebarGroupAction
+          className="top-2.5"
+          title="New Workspace"
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus /> <span className="sr-only">New Workspace</span>
+        </SidebarGroupAction>
         <SidebarGroupContent>
           <SidebarMenu>
             {isLoading && (
@@ -166,22 +168,11 @@ export function NavWorkspaces() {
               <WorkspaceItem
                 key={workspace.id}
                 workspace={workspace}
-                isActive={workspaceId === workspace.id}
                 activeSessionId={activeSessionId}
                 onEdit={setEditWorkspace}
                 onDelete={setDeleteWorkspace}
               />
             ))}
-
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                className="text-sidebar-foreground/70"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="size-4" />
-                <span>New Workspace</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

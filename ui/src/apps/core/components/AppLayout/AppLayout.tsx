@@ -14,7 +14,7 @@ export const AppLayout = ({
         <AppHeader />
         <div className="flex min-h-0 flex-1">
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className="overflow-hidden">
             <main {...otherProps}>{children}</main>
           </SidebarInset>
         </div>
