@@ -20,6 +20,7 @@ async function bootstrap() {
     .addTag('filesystem')
     .addTag('settings')
     .addTag('workspaces')
+    .addTag('sessions')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -6,6 +6,8 @@ import { type RefObject, useEffect, useRef } from "react";
 export function useTerminalSession(
   containerRef: RefObject<HTMLDivElement | null>,
   initialTheme: ITheme,
+  sessionId: string,
+  onSessionExit?: () => void,
 ): RefObject<XTerm | null> {
   const terminalRef = useRef<XTerm | null>(null);
 
@@ -42,6 +44,9 @@ export function useTerminalSession(
     );
 
     ws.addEventListener("open", () => {
+      // Attach to the session first
+      ws.send(JSON.stringify({ type: "attach", sessionId }));
+      // Then send initial resize
       ws.send(
         JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }),
       );
@@ -62,9 +67,13 @@ export function useTerminalSession(
             break;
           case "exit":
             term.write(`\r\n[Process exited with code ${msg.code ?? 0}]`);
+            onSessionExit?.();
             break;
           case "error":
             term.write(`\r\n[Error: ${msg.message ?? "unknown"}]`);
+            if (msg.message === "Session not found") {
+              onSessionExit?.();
+            }
             break;
         }
       } catch {
@@ -102,7 +111,7 @@ export function useTerminalSession(
       terminalRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionId]);
 
   return terminalRef;
 }

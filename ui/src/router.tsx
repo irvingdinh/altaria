@@ -13,4 +13,8 @@ export const router = createBrowserRouter([
     path: "/",
     lazy: lazy(() => import("@/apps/core/pages/HomePage")),
   },
+  {
+    path: "/workspaces/:workspaceId",
+    lazy: lazy(() => import("@/apps/workspace/pages/WorkspacePage")),
+  },
 ]);

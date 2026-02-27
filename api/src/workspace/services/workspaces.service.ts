@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { existsSync, statSync } from 'fs';
 import { nanoid } from 'nanoid';
@@ -16,6 +17,7 @@ export class WorkspacesService {
   constructor(
     @InjectRepository(WorkspaceEntity)
     private readonly workspaceRepository: Repository<WorkspaceEntity>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(): Promise<WorkspaceEntity[]> {
@@ -61,6 +63,7 @@ export class WorkspacesService {
 
   async remove(id: string): Promise<void> {
     const workspace = await this.findOne(id);
+    this.eventEmitter.emit('workspace.deleted', { workspaceId: id });
     await this.workspaceRepository.remove(workspace);
   }
 

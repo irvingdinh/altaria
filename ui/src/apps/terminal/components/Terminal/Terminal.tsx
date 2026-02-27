@@ -6,10 +6,20 @@ import { resolveTheme } from "@/apps/terminal/components/Terminal/theme.ts";
 import { useTerminalSession } from "@/apps/terminal/hooks/use-terminal-session.ts";
 import { useTheme } from "@/components/theme-provider.tsx";
 
-export const Terminal = () => {
+interface TerminalProps {
+  sessionId: string;
+  onSessionExit?: () => void;
+}
+
+export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
-  const terminalRef = useTerminalSession(containerRef, resolveTheme(theme));
+  const terminalRef = useTerminalSession(
+    containerRef,
+    resolveTheme(theme),
+    sessionId,
+    onSessionExit,
+  );
 
   // Theme sync
   useEffect(() => {

@@ -8,5 +8,6 @@ import { services } from './services';
   imports: [CoreModule],
   controllers: [...controllers],
   providers: [...services],
+  exports: [...services],
 })
 export class WorkspaceModule {}
