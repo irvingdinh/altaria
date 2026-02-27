@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestApplication, NestFactory } from '@nestjs/core';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { mkdtempSync, rmSync } from 'fs';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
@@ -20,6 +21,7 @@ export async function createTestApp(): Promise<NestApplication> {
     logger: ['error'],
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useWebSocketAdapter(new WsAdapter(app));
   await app.listen(env.PORT);
 
   return app;
@@ -46,6 +48,11 @@ function removeTempDataDir(): void {
 export const withUrl = (...paths: string[]) => {
   const pathname = posix.join('/', ...paths);
   return `http://localhost:${env.PORT}${pathname}`;
+};
+
+export const withWsUrl = (...paths: string[]) => {
+  const pathname = posix.join('/', ...paths);
+  return `ws://localhost:${env.PORT}${pathname}`;
 };
 
 function getAvailablePort(): Promise<number> {
