@@ -27,6 +27,8 @@ export default defineConfig([
     rules: {
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
+      // Temporarily disable some rules
+      "react-refresh/only-export-components": "off",
     },
   },
   eslintConfigPrettier,

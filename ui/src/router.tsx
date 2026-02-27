@@ -11,6 +11,6 @@ const lazy =
 export const router = createBrowserRouter([
   {
     path: "/",
-    lazy: lazy(() => import("@/apps/core/pages/HomePage/HomePage")),
+    lazy: lazy(() => import("@/apps/core/pages/HomePage")),
   },
 ]);
