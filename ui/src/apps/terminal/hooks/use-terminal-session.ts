@@ -36,6 +36,12 @@ export function useTerminalSession(
 
     term.open(container);
 
+    // Improve mobile keyboard behavior on xterm's hidden textarea
+    if (term.textarea) {
+      term.textarea.setAttribute("autocomplete", "off");
+      term.textarea.setAttribute("enterkeyhint", "enter");
+    }
+
     try {
       term.loadAddon(new WebglAddon());
     } catch {
@@ -146,6 +152,25 @@ export function useTerminalSession(
     };
     window.addEventListener("resize", handleViewportResize);
 
+    // Visual viewport resize (handles mobile virtual keyboard)
+    const handleVisualViewportResize = () => {
+      if (!window.visualViewport) return;
+      const rect = container.getBoundingClientRect();
+      const visibleBottom =
+        window.visualViewport.offsetTop + window.visualViewport.height;
+      const availableHeight = Math.max(0, Math.floor(visibleBottom - rect.top));
+      container.style.height = `${availableHeight}px`;
+      fitAddon.fit();
+    };
+    window.visualViewport?.addEventListener(
+      "resize",
+      handleVisualViewportResize,
+    );
+    window.visualViewport?.addEventListener(
+      "scroll",
+      handleVisualViewportResize,
+    );
+
     term.onResize(({ cols, rows }) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "resize", cols, rows }));
@@ -156,6 +181,14 @@ export function useTerminalSession(
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("resize", handleViewportResize);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        handleVisualViewportResize,
+      );
+      window.visualViewport?.removeEventListener(
+        "scroll",
+        handleVisualViewportResize,
+      );
       resizeObserver.disconnect();
       ws.close();
       term.dispose();

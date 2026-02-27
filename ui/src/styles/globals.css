@@ -124,6 +124,6 @@
     @apply bg-background text-foreground font-sans;
   }
   html {
-    @apply font-sans;
+    @apply overflow-hidden font-sans;
   }
 }

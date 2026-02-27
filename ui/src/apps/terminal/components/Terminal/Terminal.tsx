@@ -42,5 +42,7 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
     return () => mediaQuery.removeEventListener("change", handler);
   }, [theme, terminalRef]);
 
-  return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
+  return (
+    <div ref={containerRef} className="absolute inset-0 z-10 overflow-hidden" />
+  );
 };

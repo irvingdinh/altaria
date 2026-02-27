@@ -9,7 +9,7 @@ export const AppLayout = ({
   ...otherProps
 }: React.ComponentProps<"main">) => {
   return (
-    <div className="h-screen [--header-height:calc(--spacing(12))]">
+    <div className="h-full [--header-height:calc(--spacing(12))]">
       <SidebarProvider className="flex flex-col">
         <AppHeader />
         <div className="flex min-h-0 flex-1">
