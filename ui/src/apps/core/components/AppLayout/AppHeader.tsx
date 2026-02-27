@@ -1,5 +1,6 @@
 import { SidebarIcon } from "lucide-react";
 
+import { ModeToggle } from "@/apps/core/components/AppLayout/ModeToggle.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
 
@@ -17,6 +18,10 @@ export const AppHeader = () => {
         >
           <SidebarIcon />
         </Button>
+
+        <div className="ml-auto">
+          <ModeToggle />
+        </div>
       </div>
     </header>
   );
