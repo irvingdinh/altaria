@@ -3,6 +3,12 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { type ITheme, Terminal as XTerm } from "@xterm/xterm";
 import { type RefObject, useEffect, useRef } from "react";
 
+export interface TerminalSessionHandle {
+  terminalRef: RefObject<XTerm | null>;
+  sendInputRef: RefObject<((data: string) => void) | null>;
+  ctrlActiveRef: RefObject<boolean>;
+}
+
 function getResponsiveFontSize(): number {
   const width = window.innerWidth;
   if (width < 1024) return 12;
@@ -14,8 +20,11 @@ export function useTerminalSession(
   initialTheme: ITheme,
   sessionId: string,
   onSessionExit?: () => void,
-): RefObject<XTerm | null> {
+  ctrlConsumedRef?: RefObject<(() => void) | null>,
+): TerminalSessionHandle {
   const terminalRef = useRef<XTerm | null>(null);
+  const sendInputRef = useRef<((data: string) => void) | null>(null);
+  const ctrlActiveRef = useRef<boolean>(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -55,6 +64,13 @@ export function useTerminalSession(
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/ws/terminal`,
     );
+
+    const sendInput = (data: string) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "input", data }));
+      }
+    };
+    sendInputRef.current = sendInput;
 
     ws.addEventListener("open", () => {
       // Attach to the session first
@@ -99,32 +115,38 @@ export function useTerminalSession(
       term.write("\r\n[Connection lost]");
     });
 
-    // On touch-only devices (e.g. iPhone), swap Enter behavior so that:
-    //   Enter       → sends Option+Enter (newline without submit)
-    //   Shift+Enter → sends Enter (submit)
-    // This makes the default tap on "return" the safe action (newline).
+    // On touch-only devices (e.g. iPhone):
+    // - Swap Enter: Enter → newline (Option+Enter), Shift+Enter → submit
+    // - Intercept Ctrl+letter from the mobile accessory bar
     const isTouchOnly = window.matchMedia("(hover: none)").matches;
     if (isTouchOnly) {
       term.attachCustomKeyEventHandler((event) => {
-        if (event.type !== "keydown" || event.key !== "Enter") {
-          return true;
+        if (event.type !== "keydown") return true;
+
+        // Ctrl modifier from accessory bar: intercept letter keys
+        if (ctrlActiveRef.current && /^[a-zA-Z]$/.test(event.key)) {
+          const charCode = event.key.toUpperCase().charCodeAt(0) - 64;
+          sendInput(String.fromCharCode(charCode));
+          ctrlActiveRef.current = false;
+          ctrlConsumedRef?.current?.();
+          event.preventDefault();
+          return false;
         }
 
-        if (ws.readyState === WebSocket.OPEN) {
-          const data = event.shiftKey ? "\r" : "\x1b\n";
-          ws.send(JSON.stringify({ type: "input", data }));
+        // Enter swap: Enter → newline, Shift+Enter → submit
+        if (event.key === "Enter") {
+          sendInput(event.shiftKey ? "\r" : "\x1b\n");
+          event.preventDefault();
+          return false;
         }
 
-        event.preventDefault();
-        return false;
+        return true;
       });
     }
 
     // Terminal input → WebSocket
     term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "input", data }));
-      }
+      sendInput(data);
     });
 
     // Touch scrolling for mobile
@@ -174,12 +196,16 @@ export function useTerminalSession(
     window.addEventListener("resize", handleViewportResize);
 
     // Visual viewport resize (handles mobile virtual keyboard)
+    const ACCESSORY_BAR_HEIGHT = isTouchOnly ? 40 : 0;
     const handleVisualViewportResize = () => {
       if (!window.visualViewport) return;
       const rect = container.getBoundingClientRect();
       const visibleBottom =
         window.visualViewport.offsetTop + window.visualViewport.height;
-      const availableHeight = Math.max(0, Math.floor(visibleBottom - rect.top));
+      const availableHeight = Math.max(
+        0,
+        Math.floor(visibleBottom - rect.top) - ACCESSORY_BAR_HEIGHT,
+      );
       container.style.height = `${availableHeight}px`;
       fitAddon.fit();
     };
@@ -214,9 +240,11 @@ export function useTerminalSession(
       ws.close();
       term.dispose();
       terminalRef.current = null;
+      sendInputRef.current = null;
+      ctrlActiveRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  return terminalRef;
+  return { terminalRef, sendInputRef, ctrlActiveRef };
 }

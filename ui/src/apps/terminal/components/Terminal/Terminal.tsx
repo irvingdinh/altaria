@@ -1,10 +1,12 @@
 import "@xterm/xterm/css/xterm.css";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { resolveTheme } from "@/apps/terminal/components/Terminal/theme.ts";
+import { TerminalAccessoryBar } from "@/apps/terminal/components/TerminalAccessoryBar";
 import { useTerminalSession } from "@/apps/terminal/hooks/use-terminal-session.ts";
 import { useTheme } from "@/components/theme-provider.tsx";
+import { cn } from "@/lib/utils.ts";
 
 interface TerminalProps {
   sessionId: string;
@@ -13,12 +15,20 @@ interface TerminalProps {
 
 export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const ctrlConsumedRef = useRef<(() => void) | null>(null);
   const { theme } = useTheme();
-  const terminalRef = useTerminalSession(
+
+  const isTouchOnly = useMemo(
+    () => window.matchMedia("(hover: none)").matches,
+    [],
+  );
+
+  const { terminalRef, sendInputRef, ctrlActiveRef } = useTerminalSession(
     containerRef,
     resolveTheme(theme),
     sessionId,
     onSessionExit,
+    ctrlConsumedRef,
   );
 
   // Theme sync
@@ -43,6 +53,21 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
   }, [theme, terminalRef]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-10 overflow-hidden" />
+    <>
+      {isTouchOnly && (
+        <TerminalAccessoryBar
+          sendInputRef={sendInputRef}
+          ctrlActiveRef={ctrlActiveRef}
+          ctrlConsumedRef={ctrlConsumedRef}
+        />
+      )}
+      <div
+        ref={containerRef}
+        className={cn(
+          "absolute inset-0 z-10 overflow-hidden",
+          isTouchOnly && "bottom-10",
+        )}
+      />
+    </>
   );
 };
