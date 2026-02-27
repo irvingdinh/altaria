@@ -12,7 +12,7 @@ export const AppLayout = ({
     <div className="h-screen [--header-height:calc(--spacing(12))]">
       <SidebarProvider className="flex flex-col">
         <AppHeader />
-        <div className="flex flex-1">
+        <div className="flex min-h-0 flex-1">
           <AppSidebar />
           <SidebarInset>
             <main {...otherProps}>{children}</main>

@@ -3,8 +3,8 @@ import type { ITheme } from "@xterm/xterm";
 export const DARK_THEME: ITheme = {
   background: "#1b1b1f",
   foreground: "#d4d4d8",
-  cursor: "#d4d4d8",
-  cursorAccent: "#1b1b1f",
+  cursor: "transparent",
+  cursorAccent: "transparent",
   selectionBackground: "#3f3f46",
   black: "#27272a",
   red: "#f87171",
@@ -27,8 +27,8 @@ export const DARK_THEME: ITheme = {
 export const LIGHT_THEME: ITheme = {
   background: "#ffffff",
   foreground: "#27272a",
-  cursor: "#27272a",
-  cursorAccent: "#ffffff",
+  cursor: "transparent",
+  cursorAccent: "transparent",
   selectionBackground: "#d4d4d8",
   black: "#27272a",
   red: "#dc2626",
