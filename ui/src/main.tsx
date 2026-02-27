@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 
 import { ThemeProvider } from "@/components/theme-provider.tsx";
+import { Toaster } from "@/components/ui/sonner.tsx";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import { router } from "@/router";
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
         <TooltipProvider>
           <RouterProvider router={router} />
         </TooltipProvider>
+        <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

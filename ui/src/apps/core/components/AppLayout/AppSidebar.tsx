@@ -1,5 +1,6 @@
 import React from "react";
 
+import { NavWorkspaces } from "@/apps/workspace/components/NavWorkspaces";
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +14,9 @@ export const AppSidebar = ({
   return (
     <Sidebar {...props}>
       <SidebarHeader>&nbsp;</SidebarHeader>
-      <SidebarContent>&nbsp;</SidebarContent>
+      <SidebarContent>
+        <NavWorkspaces />
+      </SidebarContent>
       <SidebarRail />
     </Sidebar>
   );
