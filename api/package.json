@@ -1,6 +1,6 @@
 {
   "name": "altaria",
-  "version": "0.0.1",
+  "version": "0.0.8",
   "description": "altaria",
   "author": "",
   "license": "UNLICENSED",
@@ -31,7 +31,6 @@
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-ws": "^11.1.14",
-    "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.14",

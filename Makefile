@@ -22,7 +22,7 @@ clean:
 build: clean
 	cd api && npm run build
 	cd ui && bun run build
-	cp -r ui/dist api/dist/ui
+	cp -r ui/dist api
 	printf '#!/usr/bin/env node\n' | cat - api/dist/cli.js > api/dist/cli.tmp
 	mv api/dist/cli.tmp api/dist/cli.js
 	chmod +x api/dist/cli.js
