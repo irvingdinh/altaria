@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { Session } from "../types";
+import type { CreateSessionPayload, Session } from "../types";
 
 export const sessionsKey = (workspaceId: string) => [
   "workspaces",
@@ -24,10 +24,18 @@ export function useCreateSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (workspaceId: string) => {
-      const res = await fetch(`/api/workspaces/${workspaceId}/sessions`, {
-        method: "POST",
-      });
+    mutationFn: async (payload: CreateSessionPayload) => {
+      const res = await fetch(
+        `/api/workspaces/${payload.workspaceId}/sessions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agentType: payload.agentType,
+            args: payload.args,
+          }),
+        },
+      );
       if (!res.ok) throw new Error("Failed to create session");
       return res.json() as Promise<Session>;
     },

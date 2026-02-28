@@ -14,6 +14,7 @@ export class IndexController {
     return this.ptyService.findByWorkspaceId(workspaceId).map((s) => ({
       id: s.id,
       workspaceId: s.workspaceId,
+      agentType: s.agentType,
       cwd: s.cwd,
     }));
   }

@@ -1,7 +1,8 @@
-import { Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { WorkspacesService } from '../../../workspace/services/workspaces.service';
+import { CreateSessionRequestDto } from '../../dtos';
 import { PtyService } from '../../services/pty.service';
 
 @ApiTags('sessions')
@@ -14,18 +15,24 @@ export class CreateController {
 
   @Post()
   @ApiOperation({ summary: 'Create a session for a workspace' })
-  async invoke(@Param('workspaceId') workspaceId: string) {
+  async invoke(
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: CreateSessionRequestDto,
+  ) {
     const workspace = await this.workspacesService.findOne(workspaceId);
     const session = this.ptyService.create(
       workspaceId,
       workspace.directory,
       80,
       24,
+      dto.agentType,
+      dto.args ?? [],
     );
 
     return {
       id: session.id,
       workspaceId: session.workspaceId,
+      agentType: session.agentType,
       cwd: session.cwd,
     };
   }

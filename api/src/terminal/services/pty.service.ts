@@ -9,6 +9,8 @@ const OUTPUT_BUFFER_MAX = 50 * 1024; // 50 KB
 export interface PtySession {
   id: string;
   workspaceId: string;
+  agentType: string;
+  args: string[];
   pty: IPty;
   cwd: string;
   outputBuffer: string;
@@ -25,9 +27,12 @@ export class PtyService implements OnModuleDestroy {
     cwd: string,
     cols: number,
     rows: number,
+    agentType: string = 'claude',
+    args: string[] = [],
   ): PtySession {
     const id = nanoid();
-    const proc = pty.spawn('claude', [], {
+    const command = this.resolveCommand(agentType);
+    const proc = pty.spawn(command, args, {
       name: 'xterm-256color',
       cols,
       rows,
@@ -38,6 +43,8 @@ export class PtyService implements OnModuleDestroy {
     const session: PtySession = {
       id,
       workspaceId,
+      agentType,
+      args,
       pty: proc,
       cwd,
       outputBuffer: '',
@@ -62,6 +69,23 @@ export class PtyService implements OnModuleDestroy {
 
     this.sessions.set(id, session);
     return session;
+  }
+
+  private resolveCommand(agentType: string): string {
+    switch (agentType) {
+      case 'native':
+        return (
+          process.env.SHELL ||
+          (process.platform === 'win32' ? 'cmd.exe' : 'bash')
+        );
+      case 'codex':
+        return 'codex';
+      case 'gemini':
+        return 'gemini';
+      case 'claude':
+      default:
+        return 'claude';
+    }
   }
 
   findById(id: string): PtySession | undefined {

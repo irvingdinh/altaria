@@ -9,7 +9,9 @@ import {
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
-import { useCreateSession, useSessions } from "@/apps/terminal/hooks";
+import { NewSessionDialog } from "@/apps/terminal/components/NewSessionDialog";
+import { useSessions } from "@/apps/terminal/hooks";
+import { AGENT_LABELS } from "@/apps/terminal/types";
 import {
   Collapsible,
   CollapsibleContent,
@@ -57,72 +59,83 @@ function WorkspaceItem({
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
   const { data: sessions } = useSessions(workspace.id);
-  const createSession = useCreateSession();
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
 
-  const handleNewSession = async () => {
-    const session = await createSession.mutateAsync(workspace.id);
-    navigate(`/workspaces/${workspace.id}?session=${session.id}`);
+  const handleSessionCreated = (sessionId: string) => {
+    navigate(`/workspaces/${workspace.id}?session=${sessionId}`);
   };
 
   return (
-    <Collapsible defaultOpen>
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <Folder className="size-4" />
-            <span>{workspace.name}</span>
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
+    <>
+      <Collapsible defaultOpen>
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton>
+              <Folder className="size-4" />
+              <span>{workspace.name}</span>
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuAction showOnHover>
-              <MoreHorizontal />
-              <span className="sr-only">More</span>
-            </SidebarMenuAction>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-48 rounded-lg"
-            side="bottom"
-            align={isMobile ? "end" : "start"}
-          >
-            <DropdownMenuItem onClick={handleNewSession}>
-              <Plus className="text-muted-foreground" />
-              <span>New Session</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit(workspace)}>
-              <Pencil className="text-muted-foreground" />
-              <span>Edit</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(workspace)}>
-              <Trash2 className="text-muted-foreground" />
-              <span>Delete</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuAction showOnHover>
+                <MoreHorizontal />
+                <span className="sr-only">More</span>
+              </SidebarMenuAction>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-48 rounded-lg"
+              side="bottom"
+              align={isMobile ? "end" : "start"}
+            >
+              <DropdownMenuItem onClick={() => setNewSessionOpen(true)}>
+                <Plus className="text-muted-foreground" />
+                <span>New Session</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onEdit(workspace)}>
+                <Pencil className="text-muted-foreground" />
+                <span>Edit</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(workspace)}>
+                <Trash2 className="text-muted-foreground" />
+                <span>Delete</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {sessions?.map((session) => (
-              <SidebarMenuSubItem key={session.id}>
-                <SidebarMenuSubButton
-                  asChild
-                  isActive={activeSessionId === session.id}
-                >
-                  <Link
-                    to={`/workspaces/${workspace.id}?session=${session.id}`}
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {sessions?.map((session) => (
+                <SidebarMenuSubItem key={session.id}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={activeSessionId === session.id}
                   >
-                    <TerminalSquare className="size-3" />
-                    <span>{session.id.slice(0, 8)}</span>
-                  </Link>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
+                    <Link
+                      to={`/workspaces/${workspace.id}?session=${session.id}`}
+                    >
+                      <TerminalSquare className="size-3" />
+                      <span>
+                        {AGENT_LABELS[session.agentType] ?? "Session"}{" "}
+                        {session.id.slice(0, 8)}
+                      </span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+
+      <NewSessionDialog
+        open={newSessionOpen}
+        onOpenChange={setNewSessionOpen}
+        workspaceId={workspace.id}
+        onCreated={handleSessionCreated}
+      />
+    </>
   );
 }
 

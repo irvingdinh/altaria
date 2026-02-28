@@ -10,12 +10,6 @@ export interface TerminalSessionHandle {
   shiftActiveRef: RefObject<boolean>;
 }
 
-function getResponsiveFontSize(): number {
-  const width = window.innerWidth;
-  if (width < 1024) return 12;
-  return 14;
-}
-
 export function useTerminalSession(
   containerRef: RefObject<HTMLDivElement | null>,
   initialTheme: ITheme,
@@ -36,7 +30,7 @@ export function useTerminalSession(
     const term = new XTerm({
       theme: initialTheme,
       fontFamily: "ui-monospace, monospace",
-      fontSize: getResponsiveFontSize(),
+      fontSize: 12,
       cursorBlink: false,
       allowProposedApi: true,
     });
@@ -209,16 +203,6 @@ export function useTerminalSession(
     });
     resizeObserver.observe(container);
 
-    // Responsive font size based on viewport width
-    const handleViewportResize = () => {
-      const newSize = getResponsiveFontSize();
-      if (term.options.fontSize !== newSize) {
-        term.options.fontSize = newSize;
-        fitAddon.fit();
-      }
-    };
-    window.addEventListener("resize", handleViewportResize);
-
     // Visual viewport resize (handles mobile virtual keyboard)
     const ACCESSORY_BAR_HEIGHT = isTouchOnly ? 40 : 0;
     const handleVisualViewportResize = () => {
@@ -251,7 +235,6 @@ export function useTerminalSession(
     return () => {
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("resize", handleViewportResize);
       window.visualViewport?.removeEventListener(
         "resize",
         handleVisualViewportResize,
