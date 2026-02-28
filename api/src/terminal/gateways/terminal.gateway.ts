@@ -25,7 +25,11 @@ interface ResizeMessage {
   rows: number;
 }
 
-type ClientMessage = AttachMessage | InputMessage | ResizeMessage;
+interface PingMessage {
+  type: 'ping';
+}
+
+type ClientMessage = AttachMessage | InputMessage | ResizeMessage | PingMessage;
 
 interface ClientState {
   session: PtySession;
@@ -37,10 +41,32 @@ export class TerminalGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   private clients = new Map<WebSocket, ClientState>();
+  private heartbeats = new Map<
+    WebSocket,
+    { interval: NodeJS.Timeout; isAlive: boolean }
+  >();
 
   constructor(private readonly ptyService: PtyService) {}
 
   handleConnection(client: WebSocket): void {
+    // Protocol-level heartbeat: ping every 30s, terminate if no pong
+    const hb = {
+      isAlive: true,
+      interval: <NodeJS.Timeout>(<unknown>undefined),
+    };
+    hb.interval = setInterval(() => {
+      if (!hb.isAlive) {
+        client.terminate();
+        return;
+      }
+      hb.isAlive = false;
+      client.ping();
+    }, 30_000);
+    client.on('pong', () => {
+      hb.isAlive = true;
+    });
+    this.heartbeats.set(client, hb);
+
     client.on('message', (raw: Buffer | string) => {
       try {
         const msg = JSON.parse(
@@ -57,6 +83,11 @@ export class TerminalGateway
           case 'resize':
             this.handleResize(client, msg.cols, msg.rows);
             break;
+          case 'ping':
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'pong' }));
+            }
+            break;
           default:
             this.sendError(client, 'Invalid message format');
         }
@@ -67,6 +98,12 @@ export class TerminalGateway
   }
 
   handleDisconnect(client: WebSocket): void {
+    const hb = this.heartbeats.get(client);
+    if (hb) {
+      clearInterval(hb.interval);
+      this.heartbeats.delete(client);
+    }
+
     const state = this.clients.get(client);
     if (state) {
       state.dataDisposer.dispose();

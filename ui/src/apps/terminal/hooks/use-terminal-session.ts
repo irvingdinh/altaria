@@ -2,6 +2,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { type ITheme, Terminal as XTerm } from "@xterm/xterm";
 import { type RefObject, useEffect, useRef } from "react";
+import { toast } from "sonner";
+
+import { ReconnectingWs } from "../lib/reconnecting-ws";
 
 export interface TerminalSessionHandle {
   terminalRef: RefObject<XTerm | null>;
@@ -65,72 +68,75 @@ export function useTerminalSession(
 
     fitAddon.fit();
 
-    // WebSocket connection
+    // WebSocket connection with auto-reconnect
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(
-      `${protocol}//${window.location.host}/ws/terminal`,
-    );
+    const toastId = `terminal-reconnect-${sessionId}`;
+
+    const rws = new ReconnectingWs({
+      url: `${protocol}//${window.location.host}/ws/terminal`,
+      sessionId,
+      onOpen: () => {
+        const tryAttach = () => {
+          if (disposed) return;
+          const dims = fitAddon.proposeDimensions();
+          if (dims && dims.cols > 0 && dims.rows > 0) {
+            rws.send(JSON.stringify({ type: "attach", sessionId }));
+            fitAddon.fit();
+            rws.send(
+              JSON.stringify({
+                type: "resize",
+                cols: term.cols,
+                rows: term.rows,
+              }),
+            );
+          } else {
+            requestAnimationFrame(tryAttach);
+          }
+        };
+        tryAttach();
+      },
+      onMessage: (msg) => {
+        switch (msg.type) {
+          case "output":
+            term.write((msg.data as string) ?? "");
+            break;
+          case "exit":
+            term.write(
+              `\r\n[Process exited with code ${(msg.code as number) ?? 0}]`,
+            );
+            break;
+          case "error":
+            term.write(`\r\n[Error: ${(msg.message as string) ?? "unknown"}]`);
+            break;
+        }
+      },
+      onReconnected: () => {
+        term.clear();
+        toast.dismiss(toastId);
+      },
+      onGaveUp: () => {
+        toast.error("Terminal connection lost. Retrying...", {
+          duration: Infinity,
+          id: toastId,
+        });
+      },
+      onSessionLost: () => {
+        onSessionExit?.();
+      },
+    });
 
     const sendInput = (data: string) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "input", data }));
-      }
+      rws.send(JSON.stringify({ type: "input", data }));
     };
     sendInputRef.current = sendInput;
 
-    ws.addEventListener("open", () => {
-      const tryAttach = () => {
-        if (disposed) return;
-        const dims = fitAddon.proposeDimensions();
-        if (dims && dims.cols > 0 && dims.rows > 0) {
-          ws.send(JSON.stringify({ type: "attach", sessionId }));
-          fitAddon.fit();
-          ws.send(
-            JSON.stringify({
-              type: "resize",
-              cols: term.cols,
-              rows: term.rows,
-            }),
-          );
-        } else {
-          requestAnimationFrame(tryAttach);
-        }
-      };
-      tryAttach();
-    });
-
-    ws.addEventListener("message", (event) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string;
-          data?: string;
-          code?: number;
-          message?: string;
-        };
-
-        switch (msg.type) {
-          case "output":
-            term.write(msg.data ?? "");
-            break;
-          case "exit":
-            term.write(`\r\n[Process exited with code ${msg.code ?? 0}]`);
-            onSessionExit?.();
-            break;
-          case "error":
-            term.write(`\r\n[Error: ${msg.message ?? "unknown"}]`);
-            if (msg.message === "Session not found") {
-              onSessionExit?.();
-            }
-            break;
-        }
-      } catch {
-        // Ignore malformed messages
+    // Reconnect immediately when tab/app becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        rws.checkAndReconnect();
       }
-    });
-
-    ws.addEventListener("close", () => {
-      term.write("\r\n[Connection lost]");
-    });
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // On touch-only devices (e.g. iPhone):
     // - Swap Enter: Enter → newline (Option+Enter), Shift+Enter → submit
@@ -240,13 +246,12 @@ export function useTerminalSession(
     );
 
     term.onResize(({ cols, rows }) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "resize", cols, rows }));
-      }
+      rws.send(JSON.stringify({ type: "resize", cols, rows }));
     });
 
     return () => {
       disposed = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       window.visualViewport?.removeEventListener(
@@ -258,7 +263,8 @@ export function useTerminalSession(
         handleVisualViewportResize,
       );
       resizeObserver.disconnect();
-      ws.close();
+      rws.dispose();
+      toast.dismiss(toastId);
       term.dispose();
       terminalRef.current = null;
       sendInputRef.current = null;
