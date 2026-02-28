@@ -27,6 +27,8 @@ export function useTerminalSession(
     const container = containerRef.current;
     if (!container) return;
 
+    let disposed = false;
+
     const term = new XTerm({
       theme: initialTheme,
       fontFamily: "ui-monospace, monospace",
@@ -77,13 +79,24 @@ export function useTerminalSession(
     sendInputRef.current = sendInput;
 
     ws.addEventListener("open", () => {
-      // Attach to the session first
-      ws.send(JSON.stringify({ type: "attach", sessionId }));
-      // Fit to current screen before sending resize so dimensions are fresh
-      fitAddon.fit();
-      ws.send(
-        JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }),
-      );
+      const tryAttach = () => {
+        if (disposed) return;
+        const dims = fitAddon.proposeDimensions();
+        if (dims && dims.cols > 0 && dims.rows > 0) {
+          ws.send(JSON.stringify({ type: "attach", sessionId }));
+          fitAddon.fit();
+          ws.send(
+            JSON.stringify({
+              type: "resize",
+              cols: term.cols,
+              rows: term.rows,
+            }),
+          );
+        } else {
+          requestAnimationFrame(tryAttach);
+        }
+      };
+      tryAttach();
     });
 
     ws.addEventListener("message", (event) => {
@@ -233,6 +246,7 @@ export function useTerminalSession(
     });
 
     return () => {
+      disposed = true;
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       window.visualViewport?.removeEventListener(

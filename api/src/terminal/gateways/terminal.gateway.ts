@@ -130,6 +130,13 @@ export class TerminalGateway
   }
 
   private handleResize(client: WebSocket, cols: number, rows: number): void {
+    if (
+      !Number.isFinite(cols) ||
+      !Number.isFinite(rows) ||
+      cols <= 0 ||
+      rows <= 0
+    )
+      return;
     const state = this.clients.get(client);
     if (!state) return;
     this.ptyService.resize(state.session, cols, rows);

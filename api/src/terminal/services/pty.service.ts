@@ -103,7 +103,10 @@ export class PtyService implements OnModuleDestroy {
   }
 
   resize(session: PtySession, cols: number, rows: number): void {
-    session.pty.resize(cols, rows);
+    session.pty.resize(
+      Math.max(2, Math.floor(cols)),
+      Math.max(1, Math.floor(rows)),
+    );
   }
 
   destroy(session: PtySession): void {
