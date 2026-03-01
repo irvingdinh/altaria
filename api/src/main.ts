@@ -9,6 +9,7 @@ import type { AppConfig } from './core/config/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   const config = app.get(ConfigService).get<AppConfig>('root')!;
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useWebSocketAdapter(new WsAdapter(app));
