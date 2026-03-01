@@ -1,4 +1,5 @@
 export { useDirectories } from "./use-directories";
+export { useWorkspace } from "./use-workspace";
 export {
   useCreateWorkspace,
   useDeleteWorkspace,

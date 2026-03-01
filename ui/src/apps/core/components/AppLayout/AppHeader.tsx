@@ -1,10 +1,15 @@
 import { SidebarIcon } from "lucide-react";
+import React from "react";
 
 import { ModeToggle } from "@/apps/core/components/AppLayout/ModeToggle.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
 
-export const AppHeader = () => {
+interface AppHeaderProps {
+  centerContent?: React.ReactNode;
+}
+
+export const AppHeader = ({ centerContent }: AppHeaderProps) => {
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -19,7 +24,11 @@ export const AppHeader = () => {
           <SidebarIcon />
         </Button>
 
-        <div className="ml-auto">
+        {centerContent && (
+          <div className="flex flex-1 justify-center">{centerContent}</div>
+        )}
+
+        <div className={centerContent ? "" : "ml-auto"}>
           <ModeToggle />
         </div>
       </div>
