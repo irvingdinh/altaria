@@ -20,7 +20,7 @@ export class CreateController {
     @Body() dto: CreateSessionRequestDto,
   ) {
     const workspace = await this.workspacesService.findOne(workspaceId);
-    const session = this.ptyService.create(
+    const session = await this.ptyService.create(
       workspaceId,
       workspace.directory,
       80,

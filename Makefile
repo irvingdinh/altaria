@@ -1,4 +1,4 @@
-.PHONY: dev kill check check-api check-ui build clean
+.PHONY: dev kill check check-api check-ui build clean publish
 
 check:
 	$(MAKE) -j2 check-api check-ui
@@ -26,3 +26,8 @@ build: clean
 	printf '#!/usr/bin/env node\n' | cat - api/dist/cli.js > api/dist/cli.tmp
 	mv api/dist/cli.tmp api/dist/cli.js
 	chmod +x api/dist/cli.js
+
+publish:
+	cd api && npm version patch --no-git-tag-version
+	$(MAKE) build
+	cd api && npm publish

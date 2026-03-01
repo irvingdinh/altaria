@@ -1,73 +1,80 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { nanoid } from 'nanoid';
 import type { IPty } from 'node-pty';
 import * as pty from 'node-pty';
+import { Repository } from 'typeorm';
 
-const OUTPUT_BUFFER_MAX = 50 * 1024; // 50 KB
+import { SessionEntity } from '../../core/entities/session.entity';
+import { TmuxService } from './tmux.service';
 
-export interface PtySession {
-  id: string;
-  workspaceId: string;
-  agentType: string;
-  args: string[];
+export interface PtyAttachment {
+  sessionId: string;
   pty: IPty;
-  cwd: string;
-  outputBuffer: string;
 }
 
 @Injectable()
-export class PtyService implements OnModuleDestroy {
-  private sessions = new Map<string, PtySession>();
+export class PtyService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PtyService.name);
+  private attachments = new Map<string, PtyAttachment>();
 
-  constructor(private readonly eventEmitter: EventEmitter2) {}
+  constructor(
+    @InjectRepository(SessionEntity)
+    private readonly sessionRepository: Repository<SessionEntity>,
+    private readonly tmuxService: TmuxService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
-  create(
+  async onModuleInit(): Promise<void> {
+    const sessions = await this.sessionRepository.find();
+    for (const session of sessions) {
+      const alive = await this.tmuxService.hasSession(session.tmuxSessionName);
+      if (!alive) {
+        this.logger.warn(
+          `Removing stale session ${session.id} (tmux session ${session.tmuxSessionName} not found)`,
+        );
+        await this.sessionRepository.delete(session.id);
+      }
+    }
+  }
+
+  async create(
     workspaceId: string,
     cwd: string,
     cols: number,
     rows: number,
     agentType: string = 'claude',
     args: string[] = [],
-  ): PtySession {
+  ): Promise<SessionEntity> {
     const id = nanoid();
+    const tmuxSessionName = `altaria-${id}`;
     const command = this.resolveCommand(agentType);
-    const proc = pty.spawn(command, args, {
-      name: 'xterm-256color',
+
+    await this.tmuxService.createSession({
+      sessionName: tmuxSessionName,
+      command,
+      args,
+      cwd,
       cols,
       rows,
-      cwd,
-      env: { ...process.env, TERM: 'xterm-256color' },
     });
 
-    const session: PtySession = {
+    const session = this.sessionRepository.create({
       id,
       workspaceId,
       agentType,
-      args,
-      pty: proc,
+      args: JSON.stringify(args),
       cwd,
-      outputBuffer: '',
-    };
-
-    proc.onData((data) => {
-      session.outputBuffer += data;
-      if (session.outputBuffer.length > OUTPUT_BUFFER_MAX) {
-        session.outputBuffer = session.outputBuffer.slice(
-          session.outputBuffer.length - OUTPUT_BUFFER_MAX,
-        );
-      }
+      tmuxSessionName,
     });
 
-    proc.onExit(({ exitCode }) => {
-      this.sessions.delete(id);
-      this.eventEmitter.emit('session.exited', {
-        sessionId: id,
-        exitCode,
-      });
-    });
-
-    this.sessions.set(id, session);
+    await this.sessionRepository.save(session);
     return session;
   }
 
@@ -88,51 +95,132 @@ export class PtyService implements OnModuleDestroy {
     }
   }
 
-  findById(id: string): PtySession | undefined {
-    return this.sessions.get(id);
+  async findById(id: string): Promise<SessionEntity | null> {
+    return this.sessionRepository.findOneBy({ id });
   }
 
-  findByWorkspaceId(workspaceId: string): PtySession[] {
-    return Array.from(this.sessions.values()).filter(
-      (s) => s.workspaceId === workspaceId,
+  async findByWorkspaceId(workspaceId: string): Promise<SessionEntity[]> {
+    return this.sessionRepository.findBy({ workspaceId });
+  }
+
+  async attach(
+    sessionId: string,
+    cols: number,
+    rows: number,
+  ): Promise<{ attachmentId: string; pty: IPty; scrollback: string }> {
+    const session = await this.sessionRepository.findOneBy({ id: sessionId });
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const alive = await this.tmuxService.hasSession(session.tmuxSessionName);
+    if (!alive) {
+      await this.sessionRepository.delete(sessionId);
+      throw new Error(`tmux session ${session.tmuxSessionName} is dead`);
+    }
+
+    const scrollback = await this.tmuxService.capturePane(
+      session.tmuxSessionName,
     );
-  }
 
-  write(session: PtySession, data: string): void {
-    session.pty.write(data);
-  }
-
-  resize(session: PtySession, cols: number, rows: number): void {
-    session.pty.resize(
-      Math.max(2, Math.floor(cols)),
-      Math.max(1, Math.floor(rows)),
+    const attachPty = pty.spawn(
+      'tmux',
+      ['attach-session', '-t', session.tmuxSessionName],
+      {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        env: { ...process.env, TERM: 'xterm-256color' },
+      },
     );
+
+    const attachmentId = nanoid();
+    this.attachments.set(attachmentId, { sessionId, pty: attachPty });
+
+    attachPty.onExit(() => {
+      this.attachments.delete(attachmentId);
+      // Check if the tmux session died (not just the attachment)
+      void this.tmuxService
+        .hasSession(session.tmuxSessionName)
+        .then((alive) => {
+          if (!alive) {
+            void this.sessionRepository.delete(sessionId).then(() => {
+              this.eventEmitter.emit('session.exited', {
+                sessionId,
+                exitCode: 0,
+              });
+            });
+          }
+        });
+    });
+
+    return { attachmentId, pty: attachPty, scrollback };
   }
 
-  destroy(session: PtySession): void {
-    session.pty.kill();
-    this.sessions.delete(session.id);
-  }
-
-  destroyByWorkspaceId(workspaceId: string): void {
-    for (const session of this.findByWorkspaceId(workspaceId)) {
-      this.destroy(session);
+  detach(attachmentId: string): void {
+    const attachment = this.attachments.get(attachmentId);
+    if (attachment) {
+      attachment.pty.kill();
+      this.attachments.delete(attachmentId);
     }
   }
 
-  getBufferedOutput(session: PtySession): string {
-    return session.outputBuffer;
+  write(attachmentId: string, data: string): void {
+    const attachment = this.attachments.get(attachmentId);
+    if (attachment) {
+      attachment.pty.write(data);
+    }
+  }
+
+  resize(attachmentId: string, cols: number, rows: number): void {
+    const attachment = this.attachments.get(attachmentId);
+    if (attachment) {
+      attachment.pty.resize(
+        Math.max(2, Math.floor(cols)),
+        Math.max(1, Math.floor(rows)),
+      );
+    }
+  }
+
+  async destroy(sessionId: string): Promise<void> {
+    // Kill all attachments for this session
+    for (const [id, attachment] of this.attachments.entries()) {
+      if (attachment.sessionId === sessionId) {
+        attachment.pty.kill();
+        this.attachments.delete(id);
+      }
+    }
+
+    const session = await this.sessionRepository.findOneBy({ id: sessionId });
+    if (session) {
+      await this.tmuxService.killSession(session.tmuxSessionName);
+      await this.sessionRepository.delete(sessionId);
+    }
+
+    this.eventEmitter.emit('session.exited', { sessionId, exitCode: 0 });
+  }
+
+  async destroyByWorkspaceId(workspaceId: string): Promise<void> {
+    const sessions = await this.findByWorkspaceId(workspaceId);
+    for (const session of sessions) {
+      await this.destroy(session.id);
+    }
   }
 
   @OnEvent('workspace.deleted')
-  handleWorkspaceDeleted({ workspaceId }: { workspaceId: string }): void {
-    this.destroyByWorkspaceId(workspaceId);
+  async handleWorkspaceDeleted({
+    workspaceId,
+  }: {
+    workspaceId: string;
+  }): Promise<void> {
+    await this.destroyByWorkspaceId(workspaceId);
   }
 
   onModuleDestroy(): void {
-    for (const session of this.sessions.values()) {
-      session.pty.kill();
+    // Only kill attachment PTY processes, NOT tmux sessions
+    for (const attachment of this.attachments.values()) {
+      attachment.pty.kill();
     }
-    this.sessions.clear();
+    this.attachments.clear();
   }
 }

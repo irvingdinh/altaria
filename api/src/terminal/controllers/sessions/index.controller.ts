@@ -10,8 +10,9 @@ export class IndexController {
 
   @Get()
   @ApiOperation({ summary: 'List sessions for a workspace' })
-  invoke(@Param('workspaceId') workspaceId: string) {
-    return this.ptyService.findByWorkspaceId(workspaceId).map((s) => ({
+  async invoke(@Param('workspaceId') workspaceId: string) {
+    const sessions = await this.ptyService.findByWorkspaceId(workspaceId);
+    return sessions.map((s) => ({
       id: s.id,
       workspaceId: s.workspaceId,
       agentType: s.agentType,

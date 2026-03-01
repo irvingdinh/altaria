@@ -7,11 +7,13 @@ import {
 import type { IDisposable } from 'node-pty';
 import WebSocket from 'ws';
 
-import { PtyService, type PtySession } from '../services/pty.service';
+import { PtyService } from '../services/pty.service';
 
 interface AttachMessage {
   type: 'attach';
   sessionId: string;
+  cols?: number;
+  rows?: number;
 }
 
 interface InputMessage {
@@ -32,7 +34,8 @@ interface PingMessage {
 type ClientMessage = AttachMessage | InputMessage | ResizeMessage | PingMessage;
 
 interface ClientState {
-  session: PtySession;
+  sessionId: string;
+  attachmentId: string;
   dataDisposer: IDisposable;
 }
 
@@ -75,7 +78,7 @@ export class TerminalGateway
 
         switch (msg.type) {
           case 'attach':
-            this.handleAttach(client, msg.sessionId);
+            void this.handleAttach(client, msg.sessionId, msg.cols, msg.rows);
             break;
           case 'input':
             this.handleInput(client, msg.data);
@@ -107,6 +110,7 @@ export class TerminalGateway
     const state = this.clients.get(client);
     if (state) {
       state.dataDisposer.dispose();
+      this.ptyService.detach(state.attachmentId);
       this.clients.delete(client);
     }
   }
@@ -120,7 +124,7 @@ export class TerminalGateway
     exitCode: number;
   }): void {
     for (const [client, state] of this.clients.entries()) {
-      if (state.session.id === sessionId) {
+      if (state.sessionId === sessionId) {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify({ type: 'exit', code: exitCode }));
         }
@@ -130,40 +134,49 @@ export class TerminalGateway
     }
   }
 
-  private handleAttach(client: WebSocket, sessionId: string): void {
+  private async handleAttach(
+    client: WebSocket,
+    sessionId: string,
+    cols?: number,
+    rows?: number,
+  ): Promise<void> {
     // Detach from previous session if any
     const existing = this.clients.get(client);
     if (existing) {
       existing.dataDisposer.dispose();
+      this.ptyService.detach(existing.attachmentId);
       this.clients.delete(client);
     }
 
-    const session = this.ptyService.findById(sessionId);
-    if (!session) {
-      this.sendError(client, 'Session not found');
-      return;
-    }
+    try {
+      const {
+        attachmentId,
+        pty: attachPty,
+        scrollback,
+      } = await this.ptyService.attach(sessionId, cols ?? 80, rows ?? 24);
 
-    // Replay buffered output
-    const buffer = this.ptyService.getBufferedOutput(session);
-    if (buffer) {
-      client.send(JSON.stringify({ type: 'output', data: buffer }));
-    }
-
-    // Subscribe to new output
-    const dataDisposer = session.pty.onData((data) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ type: 'output', data }));
+      // Replay scrollback
+      if (scrollback) {
+        client.send(JSON.stringify({ type: 'output', data: scrollback }));
       }
-    });
 
-    this.clients.set(client, { session, dataDisposer });
+      // Subscribe to new output
+      const dataDisposer = attachPty.onData((data) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'output', data }));
+        }
+      });
+
+      this.clients.set(client, { sessionId, attachmentId, dataDisposer });
+    } catch {
+      this.sendError(client, 'Session not found');
+    }
   }
 
   private handleInput(client: WebSocket, data: string): void {
     const state = this.clients.get(client);
     if (!state) return;
-    this.ptyService.write(state.session, data);
+    this.ptyService.write(state.attachmentId, data);
   }
 
   private handleResize(client: WebSocket, cols: number, rows: number): void {
@@ -176,7 +189,7 @@ export class TerminalGateway
       return;
     const state = this.clients.get(client);
     if (!state) return;
-    this.ptyService.resize(state.session, cols, rows);
+    this.ptyService.resize(state.attachmentId, cols, rows);
   }
 
   private sendError(client: WebSocket, message: string): void {

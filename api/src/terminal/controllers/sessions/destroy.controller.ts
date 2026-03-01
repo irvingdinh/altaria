@@ -18,9 +18,9 @@ export class DestroyController {
   @Delete(':sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Destroy a session' })
-  invoke(@Param('sessionId') sessionId: string) {
-    const session = this.ptyService.findById(sessionId);
+  async invoke(@Param('sessionId') sessionId: string) {
+    const session = await this.ptyService.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-    this.ptyService.destroy(session);
+    await this.ptyService.destroy(session.id);
   }
 }

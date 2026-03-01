@@ -13,7 +13,10 @@ export interface AppConfig {
 }
 
 function ensureDataDir(): string {
-  const dir = process.env.DATA_DIR || join(homedir(), '.altaria');
+  let dir = process.env.DATA_DIR || join(homedir(), '.altaria');
+  if (dir.startsWith('~')) {
+    dir = join(homedir(), dir.slice(1));
+  }
   mkdirSync(dir, { recursive: true });
   return dir;
 }
