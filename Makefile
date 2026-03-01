@@ -1,4 +1,4 @@
-.PHONY: dev kill check check-api check-ui build clean publish
+.PHONY: dev kill check check-api check-ui build clean publish e2e-install e2e
 
 check:
 	$(MAKE) -j2 check-api check-ui
@@ -31,3 +31,9 @@ publish:
 	cd api && npm version patch --no-git-tag-version
 	$(MAKE) build
 	cd api && npm publish
+
+e2e-install:
+	cd e2e && bun install && bunx playwright install chromium
+
+e2e:
+	cd e2e && bun run test
