@@ -16,6 +16,7 @@ import { TmuxService } from './tmux.service';
 
 export interface PtyAttachment {
   sessionId: string;
+  tmuxSessionName: string;
   pty: IPty;
 }
 
@@ -119,6 +120,8 @@ export class PtyService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`tmux session ${session.tmuxSessionName} is dead`);
     }
 
+    await this.tmuxService.resizeWindow(session.tmuxSessionName, cols, rows);
+
     const scrollback = await this.tmuxService.capturePane(
       session.tmuxSessionName,
     );
@@ -135,7 +138,11 @@ export class PtyService implements OnModuleInit, OnModuleDestroy {
     );
 
     const attachmentId = nanoid();
-    this.attachments.set(attachmentId, { sessionId, pty: attachPty });
+    this.attachments.set(attachmentId, {
+      sessionId,
+      tmuxSessionName: session.tmuxSessionName,
+      pty: attachPty,
+    });
 
     attachPty.onExit(() => {
       this.attachments.delete(attachmentId);
@@ -175,10 +182,15 @@ export class PtyService implements OnModuleInit, OnModuleDestroy {
   resize(attachmentId: string, cols: number, rows: number): void {
     const attachment = this.attachments.get(attachmentId);
     if (attachment) {
-      attachment.pty.resize(
-        Math.max(2, Math.floor(cols)),
-        Math.max(1, Math.floor(rows)),
+      const safeCols = Math.max(2, Math.floor(cols));
+      const safeRows = Math.max(1, Math.floor(rows));
+
+      void this.tmuxService.resizeWindow(
+        attachment.tmuxSessionName,
+        safeCols,
+        safeRows,
       );
+      attachment.pty.resize(safeCols, safeRows);
     }
   }
 

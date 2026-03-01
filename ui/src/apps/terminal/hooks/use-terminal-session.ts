@@ -80,11 +80,11 @@ export function useTerminalSession(
           if (disposed) return;
           const dims = fitAddon.proposeDimensions();
           if (dims && dims.cols > 0 && dims.rows > 0) {
-            rws.send(JSON.stringify({ type: "attach", sessionId }));
             fitAddon.fit();
             rws.send(
               JSON.stringify({
-                type: "resize",
+                type: "attach",
+                sessionId,
                 cols: term.cols,
                 rows: term.rows,
               }),

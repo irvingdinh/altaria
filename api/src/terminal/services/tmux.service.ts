@@ -50,6 +50,22 @@ export class TmuxService {
     }
   }
 
+  async resizeWindow(name: string, cols: number, rows: number): Promise<void> {
+    try {
+      await execFileAsync('tmux', [
+        'resize-window',
+        '-t',
+        name,
+        '-x',
+        String(cols),
+        '-y',
+        String(rows),
+      ]);
+    } catch {
+      // Session may not exist
+    }
+  }
+
   async capturePane(name: string): Promise<string> {
     try {
       const { stdout } = await execFileAsync('tmux', [
