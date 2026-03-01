@@ -204,9 +204,33 @@ export function useTerminalSession(
       touchStartY = currentY;
       const lineHeight = Math.ceil(term.options.fontSize ?? 14);
       const lines = Math.round(deltaY / lineHeight);
-      if (lines !== 0) {
+      if (lines === 0) return;
+
+      if (term.modes.mouseTrackingMode !== "none") {
+        // Mouse tracking active (tmux with mouse on): dispatch synthetic
+        // wheel events so xterm.js encodes them as mouse escape sequences
+        // that tmux can handle for scrolling.
+        const screenEl = container.querySelector(".xterm-screen");
+        if (screenEl) {
+          const rect = screenEl.getBoundingClientRect();
+          const count = Math.abs(lines);
+          for (let i = 0; i < count; i++) {
+            screenEl.dispatchEvent(
+              new WheelEvent("wheel", {
+                deltaY: lines > 0 ? 1 : -1,
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+          }
+        }
+      } else {
+        // No mouse tracking: scroll xterm's own buffer.
         term.scrollLines(lines);
       }
+
       e.preventDefault();
     };
     container.addEventListener("touchstart", handleTouchStart, {

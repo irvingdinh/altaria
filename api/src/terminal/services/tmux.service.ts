@@ -31,6 +31,23 @@ export class TmuxService {
       cwd: options.cwd,
       env: { ...process.env, TERM: 'xterm-256color' },
     });
+
+    // Disable status bar (prevents horizontal overflow on narrow screens)
+    // and enable mouse support (allows scroll-through for touch devices)
+    await execFileAsync('tmux', [
+      'set-option',
+      '-t',
+      options.sessionName,
+      'status',
+      'off',
+    ]);
+    await execFileAsync('tmux', [
+      'set-option',
+      '-t',
+      options.sessionName,
+      'mouse',
+      'on',
+    ]);
   }
 
   async hasSession(name: string): Promise<boolean> {
