@@ -33,20 +33,12 @@ export class TmuxService {
     });
 
     // Disable status bar (prevents horizontal overflow on narrow screens)
-    // and enable mouse support (allows scroll-through for touch devices)
     await execFileAsync('tmux', [
       'set-option',
       '-t',
       options.sessionName,
       'status',
       'off',
-    ]);
-    await execFileAsync('tmux', [
-      'set-option',
-      '-t',
-      options.sessionName,
-      'mouse',
-      'on',
     ]);
   }
 
