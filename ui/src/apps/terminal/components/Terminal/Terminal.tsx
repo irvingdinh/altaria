@@ -1,9 +1,10 @@
 import "@xterm/xterm/css/xterm.css";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { resolveTheme } from "@/apps/terminal/components/Terminal/theme.ts";
 import { TerminalAccessoryBar } from "@/apps/terminal/components/TerminalAccessoryBar";
+import { TerminalSearch } from "@/apps/terminal/components/TerminalSearch/TerminalSearch";
 import { useTerminalSession } from "@/apps/terminal/hooks/use-terminal-session.ts";
 import { useTheme } from "@/components/theme-provider.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -18,30 +19,46 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
   const ctrlConsumedRef = useRef<(() => void) | null>(null);
   const shiftConsumedRef = useRef<(() => void) | null>(null);
   const { theme } = useTheme();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const isTouchOnly = useMemo(
     () => window.matchMedia("(hover: none)").matches,
     [],
   );
 
-  const { terminalRef, sendInputRef, ctrlActiveRef, shiftActiveRef } =
-    useTerminalSession(
-      containerRef,
-      resolveTheme(theme),
-      sessionId,
-      onSessionExit,
-      ctrlConsumedRef,
-      shiftConsumedRef,
-    );
+  const {
+    terminalRef,
+    sendInputRef,
+    ctrlActiveRef,
+    shiftActiveRef,
+    searchAddonRef,
+  } = useTerminalSession(
+    containerRef,
+    resolveTheme(theme),
+    sessionId,
+    onSessionExit,
+    ctrlConsumedRef,
+    shiftConsumedRef,
+  );
 
-  // Theme sync
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+      e.preventDefault();
+      setSearchOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.options.theme = resolveTheme(theme);
     }
   }, [theme, terminalRef]);
 
-  // System theme media query listener (only when theme === "system")
   useEffect(() => {
     if (theme !== "system") return;
 
@@ -59,6 +76,7 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
     <>
       {isTouchOnly && (
         <TerminalAccessoryBar
+          terminalRef={terminalRef}
           sendInputRef={sendInputRef}
           ctrlActiveRef={ctrlActiveRef}
           ctrlConsumedRef={ctrlConsumedRef}
@@ -66,13 +84,20 @@ export const Terminal = ({ sessionId, onSessionExit }: TerminalProps) => {
           shiftConsumedRef={shiftConsumedRef}
         />
       )}
-      <div
-        ref={containerRef}
-        className={cn(
-          "absolute inset-0 z-10 overflow-hidden",
-          isTouchOnly && "bottom-10",
-        )}
-      />
+      <div className="relative h-full w-full">
+        <TerminalSearch
+          searchAddonRef={searchAddonRef}
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+        />
+        <div
+          ref={containerRef}
+          className={cn(
+            "absolute inset-0 z-10 overflow-hidden",
+            isTouchOnly && "bottom-10",
+          )}
+        />
+      </div>
     </>
   );
 };

@@ -1,4 +1,5 @@
-import { PtyService } from './pty.service';
-import { TmuxService } from './tmux.service';
+import { PtyHostService } from './pty-host.service';
 
-export const services = [PtyService, TmuxService];
+export { PtyHostService };
+
+export const services = [PtyHostService];

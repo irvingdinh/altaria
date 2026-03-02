@@ -3,13 +3,13 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { WorkspacesService } from '../../../workspace/services/workspaces.service';
 import { CreateSessionRequestDto } from '../../dtos';
-import { PtyService } from '../../services/pty.service';
+import { PtyHostService } from '../../services/pty-host.service';
 
 @ApiTags('sessions')
 @Controller('/api/workspaces/:workspaceId/sessions')
 export class CreateController {
   constructor(
-    private readonly ptyService: PtyService,
+    private readonly ptyService: PtyHostService,
     private readonly workspacesService: WorkspacesService,
   ) {}
 

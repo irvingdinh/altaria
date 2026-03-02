@@ -8,12 +8,12 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { PtyService } from '../../services/pty.service';
+import { PtyHostService } from '../../services/pty-host.service';
 
 @ApiTags('sessions')
 @Controller('/api/workspaces/:workspaceId/sessions')
 export class DestroyController {
-  constructor(private readonly ptyService: PtyService) {}
+  constructor(private readonly ptyService: PtyHostService) {}
 
   @Delete(':sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)

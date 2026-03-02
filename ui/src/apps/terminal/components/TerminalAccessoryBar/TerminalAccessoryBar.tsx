@@ -1,9 +1,12 @@
-import { CornerDownLeft } from "lucide-react";
+import type { Terminal } from "@xterm/xterm";
+import { ClipboardCopy, CornerDownLeft } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { AccessoryKey } from "@/apps/terminal/components/TerminalAccessoryBar/AccessoryKey.tsx";
 
 interface TerminalAccessoryBarProps {
+  terminalRef: RefObject<Terminal | null>;
   sendInputRef: RefObject<((data: string) => void) | null>;
   ctrlActiveRef: RefObject<boolean>;
   ctrlConsumedRef: RefObject<(() => void) | null>;
@@ -28,6 +31,7 @@ function arrowSequence(
 }
 
 export const TerminalAccessoryBar = ({
+  terminalRef,
   sendInputRef,
   ctrlActiveRef,
   ctrlConsumedRef,
@@ -105,6 +109,24 @@ export const TerminalAccessoryBar = ({
     setShiftActive(next);
   }, [shiftActiveRef]);
 
+  const handleCopy = useCallback(() => {
+    const term = terminalRef.current;
+    if (!term) return;
+
+    let text = term.getSelection();
+    if (!text) {
+      term.selectAll();
+      text = term.getSelection();
+      term.clearSelection();
+    }
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(
+      () => toast.success("Copied to clipboard"),
+      () => toast.error("Failed to copy"),
+    );
+  }, [terminalRef]);
+
   const sendArrow = useCallback(
     (base: "A" | "B" | "C" | "D") => {
       const seq = arrowSequence(
@@ -176,8 +198,14 @@ export const TerminalAccessoryBar = ({
           </div>
         </div>
 
-        {/* Pinned Return button */}
-        <div className="border-border flex items-center border-l px-2">
+        {/* Pinned action buttons */}
+        <div className="border-border flex items-center gap-1 border-l px-2">
+          <AccessoryKey
+            label="Copy"
+            icon={ClipboardCopy}
+            onTap={handleCopy}
+            onPreventFocus={preventFocus}
+          />
           <AccessoryKey
             label="Return"
             icon={CornerDownLeft}

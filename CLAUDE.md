@@ -46,6 +46,7 @@ read from them on-demand. This keeps the main context lean.
 - `.idea/github.com/tailwindlabs/tailwindcss` — Tailwind CSS. Consult for utility classes, v4 configuration, and plugin system.
 - `.idea/github.com/vitejs/vite` — Vite build tool. Consult for config options, plugin API, and dev server behavior.
 - `.idea/github.com/shadcn-ui/ui` — shadcn/ui component library. Consult for component implementations, variants, and composable UI patterns.
+- `.idea/github.com/coder/code-server` — VS Code in the browser. Consult for browser-based IDE architecture, terminal handling, and remote development patterns.
 
 **Convention for new dependencies:** When you need to reference a dependency that is not yet
 cloned locally, shallow-clone it into `.idea/github.com/{owner}/{repo}`

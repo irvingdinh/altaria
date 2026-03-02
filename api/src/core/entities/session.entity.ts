@@ -23,8 +23,11 @@ export class SessionEntity {
   @Column({ type: 'text' })
   cwd: string;
 
-  @Column({ type: 'text' })
-  tmuxSessionName: string;
+  @Column({ type: 'text', nullable: true })
+  serializedBuffer: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  detached: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
