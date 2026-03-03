@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from 'bun';
 
+import type { WsData } from '../core/types.ts';
 import { PtyProcess } from './pty-process.ts';
-import type { WsData } from './routes/show.route.ts';
 
 const MAX_SCROLLBACK_BYTES = 256 * 1024; // 256KB
 
@@ -11,6 +11,7 @@ interface Session {
   clients: Set<ServerWebSocket<WsData>>;
   scrollback: Uint8Array[];
   scrollbackBytes: number;
+  createdAt: number;
 }
 
 class SessionManager {
@@ -28,6 +29,7 @@ class SessionManager {
       clients: new Set(),
       scrollback: [],
       scrollbackBytes: 0,
+      createdAt: Date.now(),
     };
 
     pty.startReading(
@@ -67,6 +69,26 @@ class SessionManager {
     const session = this.sessions.get(terminalId);
     if (!session) return;
     session.pty.resize(rows, cols);
+  }
+
+  list(): Array<{ id: string; createdAt: number; clientCount: number }> {
+    return Array.from(this.sessions.values()).map((s) => ({
+      id: s.terminalId,
+      createdAt: s.createdAt,
+      clientCount: s.clients.size,
+    }));
+  }
+
+  destroy(terminalId: string): boolean {
+    const session = this.sessions.get(terminalId);
+    if (!session) return false;
+
+    session.pty.kill();
+    for (const ws of session.clients) {
+      ws.close(1000, 'Session destroyed');
+    }
+    this.sessions.delete(terminalId);
+    return true;
   }
 
   shutdown(): void {
