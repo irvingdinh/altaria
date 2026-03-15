@@ -4,8 +4,10 @@ import {
   registerModule,
   shutdownAll,
 } from './src/core/router.ts';
+import { filesystemModule } from './src/filesystem';
 import { terminalModule } from './src/terminal';
 
+registerModule(filesystemModule());
 registerModule(terminalModule());
 
 const server = Bun.serve({
