@@ -22,20 +22,18 @@ export function useTerminal(
   const [status, setStatus] = useState<TerminalStatus>("connecting");
   const [exitCode, setExitCode] = useState<number | undefined>();
 
-  const terminalRef = useRef<Terminal | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectAttemptRef = useRef(0);
-  const mountedRef = useRef(true);
-  const exitedRef = useRef(false);
-
   useEffect(() => {
-    mountedRef.current = true;
-    exitedRef.current = false;
+    // Local flag scoped to this effect invocation — cannot leak across
+    // cleanup/setup cycles the way a shared ref can.
+    let active = true;
 
     const container = containerRef.current;
     if (!container) return;
+
+    let wsRef: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempt = 0;
+    let exited = false;
 
     const terminal = new Terminal({
       cursorBlink: true,
@@ -49,76 +47,78 @@ export function useTerminal(
       fontSize: 14,
       scrollback: 10_000,
     });
-    terminalRef.current = terminal;
 
     const fitAddon = new FitAddon();
-    fitAddonRef.current = fitAddon;
     terminal.loadAddon(fitAddon);
     terminal.open(container);
     terminal.focus();
 
     requestAnimationFrame(() => {
-      fitAddon.fit();
+      if (active) fitAddon.fit();
     });
 
     // Resize observer
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
-        fitAddonRef.current?.fit();
+        if (active) fitAddon.fit();
       });
     });
     resizeObserver.observe(container);
 
     // Wire terminal input/resize to WebSocket
     const onDataDisposable = terminal.onData((data) => {
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(encodeStdin(data));
+      if (wsRef && wsRef.readyState === WebSocket.OPEN) {
+        wsRef.send(encodeStdin(data));
       }
     });
 
     const onResizeDisposable = terminal.onResize(({ cols, rows }) => {
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(encodeResize(cols, rows));
+      if (wsRef && wsRef.readyState === WebSocket.OPEN) {
+        wsRef.send(encodeResize(cols, rows));
       }
     });
 
     // WebSocket connection
     function connect() {
-      if (!mountedRef.current) return;
+      if (!active) return;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const ws = new WebSocket(
         `${protocol}//${window.location.host}/ws/terminals/${terminalId}`,
       );
       ws.binaryType = "arraybuffer";
-      wsRef.current = ws;
+      wsRef = ws;
 
       setStatus("connecting");
 
       ws.onopen = () => {
-        if (!mountedRef.current) return;
+        if (!active) return;
         setStatus("connected");
-        reconnectAttemptRef.current = 0;
+        reconnectAttempt = 0;
         // Sync terminal dimensions with backend
-        fitAddonRef.current?.fit();
+        fitAddon.fit();
+        // Send current dimensions explicitly (onResize only fires on change)
+        const { cols, rows } = terminal;
+        ws.send(encodeResize(cols, rows));
+        // Re-focus after navigation/dialog close
+        terminal.focus();
       };
 
       ws.onmessage = (event) => {
+        if (!active) return;
         const msg = parseServerMessage(event.data as ArrayBuffer);
         if (msg.type === "output") {
           terminal.write(msg.data);
         } else if (msg.type === "exit") {
-          exitedRef.current = true;
+          exited = true;
           setStatus("exited");
           setExitCode(msg.code);
         }
       };
 
       ws.onclose = () => {
-        if (!mountedRef.current) return;
-        if (!exitedRef.current) {
+        if (!active) return;
+        if (!exited) {
           setStatus("disconnected");
           scheduleReconnect();
         }
@@ -126,13 +126,12 @@ export function useTerminal(
     }
 
     function scheduleReconnect() {
-      if (!mountedRef.current || exitedRef.current) return;
-      const attempt = reconnectAttemptRef.current;
-      const delay = Math.min(500 * Math.pow(2, attempt), 10_000);
-      reconnectAttemptRef.current = attempt + 1;
+      if (!active || exited) return;
+      const delay = Math.min(500 * Math.pow(2, reconnectAttempt), 10_000);
+      reconnectAttempt += 1;
 
-      reconnectTimerRef.current = setTimeout(() => {
-        if (mountedRef.current && !exitedRef.current) {
+      reconnectTimer = setTimeout(() => {
+        if (active && !exited) {
           terminal.reset();
           connect();
         }
@@ -143,23 +142,19 @@ export function useTerminal(
 
     // Cleanup
     return () => {
-      mountedRef.current = false;
+      active = false;
 
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
       }
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
       resizeObserver.disconnect();
 
-      if (wsRef.current) {
-        wsRef.current.close(1000, "Component unmounted");
+      if (wsRef) {
+        wsRef.close(1000, "Component unmounted");
       }
       terminal.dispose();
-
-      terminalRef.current = null;
-      wsRef.current = null;
-      fitAddonRef.current = null;
     };
   }, [terminalId]);
 

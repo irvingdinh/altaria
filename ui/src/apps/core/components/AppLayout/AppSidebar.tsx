@@ -2,6 +2,7 @@ import { type ComponentProps, Fragment } from "react";
 
 import { NewTerminalDialog } from "@/apps/terminal/components/NewTerminalDialog";
 import { NewTerminalSheet } from "@/apps/terminal/components/NewTerminalSheet";
+import { SessionList } from "@/apps/terminal/components/SessionList";
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +17,9 @@ export const AppSidebar = ({ ...props }: ComponentProps<typeof Sidebar>) => {
     <Fragment>
       <Sidebar {...props}>
         <SidebarHeader />
-        <SidebarContent className="gap-0" />
+        <SidebarContent className="gap-0">
+          <SessionList />
+        </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
             <NewTerminalDialog />

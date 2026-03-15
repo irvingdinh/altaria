@@ -11,7 +11,7 @@ export function terminalModule(): ModuleRoutes {
         pattern: /^\/ws\/terminals\/(.+)$/,
         upgrade(_req, match) {
           const terminalId = match[1];
-          if (!terminalId) return null;
+          if (!terminalId || !sessionManager.has(terminalId)) return null;
           return { terminalId };
         },
         handler: showWebSocket,

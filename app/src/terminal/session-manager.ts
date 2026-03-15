@@ -43,8 +43,9 @@ class SessionManager {
     return session;
   }
 
-  attach(terminalId: string, ws: ServerWebSocket<WsData>): void {
-    const session = this.getOrCreate(terminalId);
+  attach(terminalId: string, ws: ServerWebSocket<WsData>): boolean {
+    const session = this.sessions.get(terminalId);
+    if (!session) return false;
 
     // Replay scrollback
     for (const chunk of session.scrollback) {
@@ -52,6 +53,7 @@ class SessionManager {
     }
 
     session.clients.add(ws);
+    return true;
   }
 
   detach(ws: ServerWebSocket<WsData>): void {
@@ -89,6 +91,10 @@ class SessionManager {
       createdAt: s.createdAt,
       clientCount: s.clients.size,
     }));
+  }
+
+  has(terminalId: string): boolean {
+    return this.sessions.has(terminalId);
   }
 
   destroy(terminalId: string): boolean {
