@@ -410,8 +410,8 @@ int kill_process(int pid, int sig) {
  *   pid — Process ID to check
  *
  * Returns:
- *   0       : Process is still running (hasn't exited yet)
- *   1-255   : Process exited normally with this exit code
+ *   -2      : Process is still running (hasn't exited yet)
+ *   0-255   : Process exited normally with this exit code
  *             (0 = success, non-zero = error, by convention)
  *   129-255 : Process was killed by a signal. The value is 128 + signal number.
  *             E.g., killed by SIGKILL(9) → returns 137 (128+9).
@@ -446,7 +446,7 @@ int wait_process(int pid) {
     return -errno;
   }
   if (result == 0) {
-    return 0; /* Still running */
+    return -2; /* Still running */
   }
   if (WIFEXITED(status)) {
     return WEXITSTATUS(status);

@@ -59,6 +59,10 @@ class SessionManager {
     const session = this.sessions.get(terminalId);
     if (!session) return;
     session.clients.delete(ws);
+
+    if (session.clients.size === 0 && !session.pty.isAlive) {
+      this.sessions.delete(terminalId);
+    }
   }
 
   write(terminalId: string, data: Uint8Array): void {
@@ -137,11 +141,10 @@ class SessionManager {
     const session = this.sessions.get(terminalId);
     if (!session) return;
 
+    const exitMsg = new Uint8Array([0x02, exitCode & 0xff]);
     for (const ws of session.clients) {
-      ws.close(1000, `Process exited with code ${exitCode}`);
+      ws.sendBinary(exitMsg);
     }
-
-    this.sessions.delete(terminalId);
   }
 }
 

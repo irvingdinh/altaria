@@ -50,18 +50,13 @@ export class PtyProcess {
         onData(data);
       }
 
-      // Check if child has exited
+      // Check if child has exited (-2 means still running)
       const exitCode = waitProcess(this.childPid);
-      if (exitCode !== 0 || !this.alive) {
-        // exitCode > 0 means process exited (waitProcess returns status)
-        // We need to distinguish "still running" (returns 0) from "exited with 0"
-        // waitProcess returns 0 for "still running", so we re-check
-        if (exitCode !== 0) {
-          this.alive = false;
-          this.stopPolling();
-          closeFd(this.masterFd);
-          onExit(exitCode);
-        }
+      if (exitCode !== -2) {
+        this.alive = false;
+        this.stopPolling();
+        closeFd(this.masterFd);
+        onExit(exitCode < 0 ? 1 : exitCode);
       }
     }, POLL_INTERVAL_MS);
   }
@@ -86,7 +81,7 @@ export class PtyProcess {
     setTimeout(() => {
       // Force kill if still running
       const status = waitProcess(this.childPid);
-      if (status === 0) {
+      if (status === -2) {
         killProcess(this.childPid, SIGKILL);
       }
       closeFd(this.masterFd);
