@@ -30,8 +30,8 @@ export class PtyProcess {
     return this.alive;
   }
 
-  static spawn(rows = 24, cols = 80): PtyProcess {
-    const { pid, masterFd } = spawnPty(rows, cols);
+  static spawn(rows = 24, cols = 80, cwd?: string): PtyProcess {
+    const { pid, masterFd } = spawnPty(rows, cols, cwd);
     setNonBlock(masterFd);
     return new PtyProcess(masterFd, pid);
   }

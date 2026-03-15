@@ -1,4 +1,4 @@
-import { resolve, normalize } from 'node:path';
+import { normalize, resolve } from 'node:path';
 
 import type { Server, WebSocketHandler } from 'bun';
 
@@ -37,9 +37,9 @@ async function serveStatic(pathname: string): Promise<Response | null> {
 
 export function createFetchHandler(): (
   req: Request,
-  server: Server<any>,
+  server: Server<WsData>,
 ) => Response | Promise<Response> | undefined {
-  return (req: Request, server: Server<any>) => {
+  return (req: Request, server: Server<WsData>) => {
     const url = new URL(req.url);
 
     for (const route of wsRoutes) {
@@ -49,7 +49,6 @@ export function createFetchHandler(): (
       const data = route.upgrade(req, match, server);
       if (!data) continue;
 
-      // @ts-expect-error Lorem ipsum dolor sit amet
       const upgraded = server.upgrade(req, { data });
       if (upgraded) return;
       return new Response('WebSocket upgrade failed', { status: 500 });

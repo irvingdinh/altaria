@@ -7,6 +7,7 @@ const MAX_SCROLLBACK_BYTES = 256 * 1024; // 256KB
 
 interface Session {
   terminalId: string;
+  cwd?: string;
   pty: PtyProcess;
   clients: Set<ServerWebSocket<WsData>>;
   scrollback: Uint8Array[];
@@ -17,14 +18,15 @@ interface Session {
 class SessionManager {
   private sessions = new Map<string, Session>();
 
-  getOrCreate(terminalId: string): Session {
+  getOrCreate(terminalId: string, cwd?: string): Session {
     let session = this.sessions.get(terminalId);
     if (session) return session;
 
-    const pty = PtyProcess.spawn(24, 80);
+    const pty = PtyProcess.spawn(24, 80, cwd);
 
     session = {
       terminalId,
+      cwd,
       pty,
       clients: new Set(),
       scrollback: [],
@@ -71,9 +73,15 @@ class SessionManager {
     session.pty.resize(rows, cols);
   }
 
-  list(): Array<{ id: string; createdAt: number; clientCount: number }> {
+  list(): Array<{
+    id: string;
+    cwd?: string;
+    createdAt: number;
+    clientCount: number;
+  }> {
     return Array.from(this.sessions.values()).map((s) => ({
       id: s.terminalId,
+      cwd: s.cwd,
       createdAt: s.createdAt,
       clientCount: s.clients.size,
     }));

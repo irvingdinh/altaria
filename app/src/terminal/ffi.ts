@@ -1,16 +1,15 @@
 import { cc, ptr } from 'bun:ffi';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 import source from './native/pty.c' with { type: 'file' };
 
 const EAGAIN = 35; // macOS; Linux is 11 but handled by -errno pattern
 
 const lib = cc({
-  source: source as string,
+  source: source,
   library: process.platform === 'linux' ? ['util'] : [],
   symbols: {
     spawn_pty: {
-      args: ['ptr', 'i32', 'i32'],
+      args: ['ptr', 'i32', 'i32', 'ptr'],
       returns: 'i32',
     },
     read_pty: {
@@ -49,9 +48,16 @@ const { symbols } = lib;
 export function spawnPty(
   rows: number,
   cols: number,
+  cwd?: string,
 ): { pid: number; masterFd: number } {
   const fdOut = new Int32Array(1);
-  const pid = symbols.spawn_pty(ptr(fdOut), rows, cols);
+  let cwdPtr: ReturnType<typeof ptr> | null = null;
+  let cwdBuf: Uint8Array | undefined;
+  if (cwd) {
+    cwdBuf = new TextEncoder().encode(cwd + '\0');
+    cwdPtr = ptr(cwdBuf);
+  }
+  const pid = symbols.spawn_pty(ptr(fdOut), rows, cols, cwdPtr);
   if (pid < 0) {
     throw new Error(`spawn_pty failed: errno ${-pid}`);
   }

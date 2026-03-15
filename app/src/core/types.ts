@@ -10,7 +10,7 @@ export type RestRoute = {
   handler: (
     req: Request,
     match: RegExpMatchArray,
-    server: Server,
+    server: Server<WsData>,
   ) => Response | Promise<Response>;
 };
 
@@ -19,7 +19,7 @@ export type WsRoute = {
   upgrade: (
     req: Request,
     match: RegExpMatchArray,
-    server: Server,
+    server: Server<WsData>,
   ) => WsData | null;
   handler: WebSocketHandler<WsData>;
 };

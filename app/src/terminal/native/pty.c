@@ -85,6 +85,8 @@
  *                   similar to passing by reference in other languages.)
  *   rows          — Initial terminal height in character rows (e.g. 24)
  *   cols          — Initial terminal width in character columns (e.g. 80)
+ *   cwd           — Working directory for the spawned shell (NULL or empty
+ *                   string means inherit the parent's working directory)
  *
  * Returns:
  *   > 0 : The PID (process ID) of the child shell process (success)
@@ -100,7 +102,7 @@
  *   - pid == 0: We're in the CHILD process → set up env and exec a shell
  *   - pid > 0:  We're in the PARENT process → return the master FD and PID
  */
-int spawn_pty(int *master_fd_out, int rows, int cols) {
+int spawn_pty(int *master_fd_out, int rows, int cols, const char *cwd) {
   /*
    * struct winsize — Tells the PTY what terminal dimensions to use.
    *
@@ -173,6 +175,17 @@ int spawn_pty(int *master_fd_out, int rows, int cols) {
      */
     setenv("TERM", "xterm-256color", 1);
     setenv("COLORTERM", "truecolor", 1);
+
+    /*
+     * Change to the requested working directory if one was provided.
+     * This must happen before execl() so the shell starts in the right place.
+     * If chdir fails (e.g., directory doesn't exist), exit with code 127.
+     */
+    if (cwd && cwd[0] != '\0') {
+      if (chdir(cwd) < 0) {
+        _exit(127);
+      }
+    }
 
     /*
      * Determine which shell to run. We respect the user's preference by

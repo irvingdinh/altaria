@@ -5,11 +5,19 @@ export const sessionRestRoutes: RestRoute[] = [
   {
     method: 'POST',
     pattern: /^\/api\/sessions$/,
-    handler() {
+    async handler(req) {
+      let cwd: string | undefined;
+      try {
+        const body = (await req.json()) as { cwd?: string };
+        cwd = body.cwd || undefined;
+      } catch {
+        // No body or invalid JSON — proceed without cwd
+      }
+
       const id = crypto.randomUUID();
-      const session = sessionManager.getOrCreate(id);
+      const session = sessionManager.getOrCreate(id, cwd);
       return Response.json(
-        { id, createdAt: session.createdAt, clientCount: 0 },
+        { id, cwd: cwd ?? null, createdAt: session.createdAt, clientCount: 0 },
         { status: 201 },
       );
     },
